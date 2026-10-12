@@ -150,6 +150,8 @@ Four tables:
 - **Reservation**: belongs to a resource and a user; has title, start and end time, status (CONFIRMED or CANCELLED), and cancellation time
 
 
+ER diagram:https://dbdiagram.io/d/resource-reservation-system-6accbe6310dbb6efb5d32669
+
 ## Key Engineering Decisions
 
 - **Overlap protection in the database.** A `btree_gist` exclusion constraint on `tstzrange("startTime", "endTime", '[)')` rejects overlapping CONFIRMED reservations for the same resource. An application-only check can fail when two requests arrive at the same moment; the constraint cannot. The application also performs a friendly pre-check and translates the database error (code `23P01`) into a clear message. The half-open range `[)` means back-to-back bookings (one ending when the next begins) are allowed.
