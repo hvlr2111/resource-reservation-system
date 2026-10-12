@@ -1,197 +1,286 @@
 # Resource Reservation Management System
 
-A full-stack web application that helps an organization manage its shared facilities and resources, and coordinate reservations in one central place.
+A Next.js application for a software company in one five-storey Colombo building, where rooms, labs, devices, and vehicles were booked through informal communication. It gives employees and administrators a shared view of resources and reservations, reducing booking overlaps and uncertainty about availability.
 
-## Problem
+## Solution overview
 
-Reservations were handled through informal communication and manual records, which led to scheduling confusion, overlapping bookings, and uncertainty about what was available. This system replaces that with a single source of truth.
+- **Admins** create and edit resources and categories, activate or deactivate resources, review and cancel reservations, and view weekly booking and utilization summaries.
+- **Members** browse active resources, check availability, make reservations, and view or cancel their own eligible reservations.
+- New self-registered accounts are Members. The seed script creates the demo Admin account.
 
-## Solution
+## Key features
 
-- **Admins** manage resources (rooms, equipment, vehicles, etc.) and see reservations and usage across the organization.
-- **Members** browse resources, check availability on a timeline, and make or cancel their own reservations.
-- **Double bookings are impossible.** Overlaps are rejected by a PostgreSQL exclusion constraint, so the rule holds even when two users book at the same moment.
+- Email/password registration and login with role-based access.
+- Active resource browsing with name search and category filtering.
+- Admin resource and category management, including resource category filtering.
+- Per-resource availability timeline and upcoming confirmed reservations.
+- Reservation forms with Colombo time input and server-side booking validation.
+- My Reservations view with upcoming and past/cancelled sections.
+- Admin reservations view with resource, status, and date filters, 10-row pagination, cancellation, and weekly usage summaries.
+- Friendly empty, not-found, loading, and error UI.
 
-## Key Features
+## Tech stack
 
-- Email/password authentication with role-based access (Admin / Member), enforced on the server
-- Resource management with categories, capacity, location, and active/inactive status
-- Resource browsing with search and category filter
-- Reservation creation with validation (no past bookings, duration limits, end after start)
-- Availability timeline per resource and day
-- "My Reservations" page with cancellation
-- Admin overview of all reservations with filters, pagination, and cancellation
-- Weekly usage summary (bookings and utilization per resource)
-
-## Tech Stack
+Versions below are the dependency versions/ranges declared in `package.json`; the PostgreSQL image version is declared in `docker-compose.yml`.
 
 | Area | Technology |
 |---|---|
-| Framework | Next.js (App Router) |
-| Language | TypeScript |
-| Database | PostgreSQL 16 |
-| ORM | Prisma 6 |
-| UI | Tailwind CSS, shadcn/ui |
-| Validation | Zod |
-| Authentication | bcryptjs + JWT (`jose`) in an httpOnly cookie |
-| Dates | `Intl.DateTimeFormat` with the Asia/Colombo time zone |
-| Local database | Docker Compose |
-| Version control | Git and GitHub |
+| Framework | Next.js `16.4.0` (App Router) |
+| Language | TypeScript `^5` |
+| Database | PostgreSQL `16` |
+| ORM | Prisma `^6.19.3` / Prisma Client `^6.19.3` |
+| UI | React `19.3.0`, Tailwind CSS `^4`, shadcn CLI `^4.21.4`, Base UI `^1.9.0` |
+| Validation | Zod `^4.6.5` |
+| Authentication | `jose` `^6.2.12` for JWT and `bcryptjs` `^3.0.3` for password hashing |
+| Dates | Built-in `Intl.DateTimeFormat` with the `Asia/Colombo` time zone |
+| Docker | Docker Compose running the `postgres:16` image |
+| Unit tests | Vitest `^4.1.11` |
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
-- Node.js 20 or newer
-- Docker Desktop (running)
+- Node.js and npm
+- Docker with Docker Compose
 - Git
 
 ### Setup
 
 1. Clone the repository and install dependencies:
 
-```bash
-   git clone <your-repo-url>
-   cd <repo-folder>
+   ```bash
+   git clone https://github.com/hvlr2111/resource-reservation-system.git
+   cd resource-reservation-system
    npm install
-```
+   ```
 
-2. Create your environment file:
+2. Copy `.env.example` to `.env`:
 
-```bash
-   # macOS / Linux
+   macOS/Linux:
+
+   ```bash
    cp .env.example .env
+   ```
 
-   # Windows (PowerShell)
-   copy .env.example .env
-```
+   Windows PowerShell:
 
-   Then open `.env` and set `AUTH_SECRET` to a random string. You can generate one with:
+   ```powershell
+   Copy-Item .env.example .env
+   ```
 
-```bash
-   node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"
-```
+   `.env.example` defines `DATABASE_URL` and `AUTH_SECRET`. The compose database uses PostgreSQL on port `5432`, database `reservations`, user `app`, and password `app`. Replace the example `AUTH_SECRET` with a random value of at least 32 characters. For example:
 
-3. Start PostgreSQL:
+   ```bash
+   node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('hex'))"
+   ```
 
-```bash
+3. Start the local database:
+
+   ```bash
    docker compose up -d
-```
+   ```
 
-4. Apply the database migrations and generate the Prisma client:
+4. Apply the committed Prisma migrations and generate the Prisma Client:
 
-```bash
+   ```bash
    npx prisma migrate deploy
    npx prisma generate
-```
+   ```
 
-5. Seed demo data:
+5. Seed demo users, categories, resources, and sample reservations:
 
-```bash
+   ```bash
    npx prisma db seed
-```
+   ```
+
+   Sample reservations are added only when the reservation table is empty. The seed script hashes the shared demo password and upserts the seeded users and categories.
 
 6. Start the development server:
 
-```bash
+   ```bash
    npm run dev
-```
+   ```
 
-   Open http://localhost:3000
+   Open http://localhost:3000.
 
-### Demo Accounts
+### Demo accounts
 
-| Role | Email | Password |
+All seeded accounts share the password `Password123!`.
+
+| Role | Name | Email |
 |---|---|---|
-| Admin | admin@example.com | Password123! |
-| Member | member@example.com | Password123! |
+| Admin | Admin User | `admin@example.com` |
+| Member | Member User | `member@example.com` |
+| Member | Nimali Perera | `nimali.perera@example.com` |
+| Member | Kasun Fernando | `kasun.fernando@example.com` |
+| Member | Ishara Jayawardena | `ishara.jayawardena@example.com` |
+| Member | Tharindu Silva | `tharindu.silva@example.com` |
+| Member | Dilani Wickramasinghe | `dilani.wickramasinghe@example.com` |
 
-### Useful Commands
+## Useful commands
 
 | Command | Purpose |
 |---|---|
-| `npm run dev` | Start the development server |
+| `npm run dev` | Start the Next.js development server |
 | `npm run build` | Create a production build |
-| `npx prisma studio` | Browse the database in the browser |
-| `npx prisma migrate reset` | Reset the database and re-run all migrations |
-| `docker compose down` | Stop the database (add `-v` to delete its data) |
+| `npm run start` | Start the production server |
+| `npm run lint` | Run ESLint |
+| `npm test` | Run the Vitest unit tests |
+| `npx prisma migrate deploy` | Apply pending committed migrations |
+| `npx prisma generate` | Generate Prisma Client |
+| `npx prisma db seed` | Run the seed configured in `package.json` |
+| `npx prisma studio` | Open Prisma Studio |
+| `npx tsx scripts/concurrency-test.ts` | Run simultaneous inserts to demonstrate the overlap constraint |
+| `docker compose up -d` | Start the local PostgreSQL service |
+| `docker compose down` | Stop the local PostgreSQL service |
 
-## How It Works
+## How it works
 
-### Roles
+### Roles and permissions
 
-- **Member:** browse resources, book, view and cancel their own reservations.
-- **Admin:** everything a member can do, plus managing resources and categories, viewing all reservations, cancelling any reservation, and viewing usage statistics.
+- **Member:** browse resources, check availability, create reservations, view their own reservation history, and cancel their own future confirmed reservations.
+- **Admin:** all Member capabilities, plus manage resources and categories, view and cancel reservations for all users, and view weekly usage summaries.
 
-New registrations are always Members. The admin account is created by the seed script.
+Registration always assigns the `MEMBER` role. Admin routes are guarded by the admin layout, and the mutations themselves also perform server-side authorization.
 
-### Project Structure
+### Project structure
 
-```
+```text
 prisma/
-  schema.prisma          Data model
-  migrations/            SQL migrations (includes overlap constraint)
-  seed.ts                Demo data
+  migrations/
+    20261011162411_init/
+    20261012103719_add_max_duration_hours/
+  schema.prisma
+  seed.ts
+scripts/
+  concurrency-test.ts
 src/
-  app/                   Pages and routes (App Router)
-  app/actions/           Server actions (auth, resources, reservations)
-  components/            UI components
-  lib/                   Prisma client, authentication helpers
-docker-compose.yml       Local PostgreSQL
+  app/
+    actions/                 Authentication, resource, and reservation actions
+    admin/
+      reservations/          Admin reservation overview and filters
+      resources/             Admin resource and category management
+    login/
+    register/
+    reservations/             Current user's reservations
+    resources/
+      [id]/                   Resource details, booking form, availability timeline
+  components/                 Shared layout and UI components
+  lib/
+    action-state.ts
+    auth.ts
+    booking-rules.ts
+    dates.ts
+    prisma-errors.ts
+    prisma.ts
+    validation.ts
 ```
 
-## Database Design
+## Business context and booking rules
 
-Four tables:
+The seed catalogue models one fictional five-storey software-company building:
 
-- **User**: name, unique email, password hash, role (ADMIN or MEMBER)
-- **ResourceCategory**: unique name
-- **Resource**: belongs to a category; has name, description, location, capacity, and an active flag
-- **Reservation**: belongs to a resource and a user; has title, start and end time, status (CONFIRMED or CANCELLED), and cancellation time
+| Location | Seeded layout and examples |
+|---|---|
+| Floor 1 | Reception, client and event spaces; Babbage Interview Room, Berners-Lee Client Lounge, and Knuth Training Hall |
+| Floor 2 | Engineering teams, focus pods, huddle and war rooms; also the Mobile Test Device Kit, Laptop Pool, and Portable Projector |
+| Floor 3 | Product and design; Turing Conference Room and Design Studio |
+| Floor 4 | Labs and devices; Device Test Lab, GPU Workstation, and Recording Studio |
+| Floor 5 | Executive floor; Lovelace Boardroom and Innovation Lounge |
+| Basement Parking | Toyota KDH Van and Toyota Axio Sedan |
 
+Reservations are stored as UTC timestamps and interpreted in Sri Lanka time. The server-side rules in `src/lib/booking-rules.ts` and `src/app/actions/reservations.ts` enforce:
 
-ER diagram:https://dbdiagram.io/d/resource-reservation-system-6accbe6310dbb6efb5d32669
+- Booking is available Monday through Friday, 08:00 inclusive to 20:00 inclusive for an ending time, in `Asia/Colombo` (UTC+05:30). A start must be before 20:00.
+- Start and end must be on 15-minute boundaries and on the same Colombo calendar day.
+- A reservation must last at least 30 minutes and no longer than that resource's configured `maxDurationHours`. Admin resource actions accept maximum-duration values from 1 through 12 hours; resources in the seed catalogue have their own configured values.
+- A start cannot be in the past or more than 30 days ahead.
+- A resource must exist and be active to be booked.
+- A Member may have at most 5 confirmed reservations that have not ended. Admins are exempt.
+- Confirmed reservations for the same resource may not overlap. Back-to-back reservations are allowed.
+- A title is required and may be at most 100 characters.
+- Only the reservation owner or an Admin may cancel a reservation. It must still be confirmed and not have ended. Cancellation records a cancelled status and timestamp rather than deleting the reservation.
 
-## Key Engineering Decisions
+The admin weekly utilization summary clips confirmed reservation time to weekdays from 08:00 to 20:00 and divides booked time by 12 hours × 5 weekdays for each active resource.
 
-- **Overlap protection in the database.** A `btree_gist` exclusion constraint on `tstzrange("startTime", "endTime", '[)')` rejects overlapping CONFIRMED reservations for the same resource. An application-only check can fail when two requests arrive at the same moment; the constraint cannot. The application also performs a friendly pre-check and translates the database error (code `23P01`) into a clear message. The half-open range `[)` means back-to-back bookings (one ending when the next begins) are allowed.
-- **A check constraint** (`end_after_start`) guarantees valid time ranges at the database level.
-- **UTC storage.** All timestamps are stored as `timestamptz` and displayed in Sri Lanka time.
-- **Soft cancellation and deactivation.** Reservations are marked CANCELLED and resources are deactivated rather than deleted, which preserves history for reporting and avoids broken references.
-- **Server-side authorization.** Every server action verifies the current user and role itself; route protection alone is never relied on.
-- **Fresh user lookup on each request.** The JWT stores only the user id, and the user is re-loaded from the database each time, so role changes or removed users take effect immediately.
-- **Simple custom authentication** instead of a heavy auth library, to keep the code small and easy to understand.
+## Database design
+
+The Prisma schema defines four tables:
+
+- **User:** unique email, name, password hash, role (`ADMIN` or `MEMBER`), creation time, and reservations.
+- **ResourceCategory:** unique name and related resources.
+- **Resource:** category relationship, name, optional description/location/capacity, active status, per-resource maximum duration, creation time, and reservations.
+- **Reservation:** resource and user relationships, title, UTC start/end timestamps, status (`CONFIRMED` or `CANCELLED`), creation time, and optional cancellation time.
+
+The initial migration creates the enum types, tables, indexes, and foreign keys. It also enables PostgreSQL's `btree_gist` extension and defines:
+
+- `no_overlapping_reservations`: a GiST exclusion constraint for overlapping half-open `tstzrange(startTime, endTime, '[)')` ranges on the same resource, restricted to `CONFIRMED` rows. The `[)` range permits back-to-back reservations.
+- `end_after_start`: a check constraint requiring `endTime > startTime`.
+
+The later migration adds `Resource.maxDurationHours` as a non-null integer with database default `4`.
+
+ER diagram: https://dbdiagram.io/d/resource-reservation-system-6accbe6310dbb6efb5d32669
 
 ## Architecture
 
-A page reads the request and loads only the data it needs from Prisma. A form submits to a Server Action, which checks the session and authorization, validates input with Zod, applies the pure booking rules in `src/lib/booking-rules.ts`, and then reads or writes PostgreSQL. Server Actions keep mutations close to the UI while still running trusted authorization and validation on the server; the browser never supplies the acting user id.
+Pages use server components to check the current user and load page data through the shared Prisma client. Form submissions invoke Server Actions in `src/app/actions/`. Protected actions perform their own required authentication and authorization, validate untrusted form values with Zod, apply the relevant business rules, and then access PostgreSQL. Registration and login validate credentials before creating or reading the session. The acting user ID for reservations comes from the authenticated database user, not the form.
 
-The rules in `src/lib/booking-rules.ts` are a pure function so both behavior and edge cases can be checked without database or server-time-zone dependencies. Application checks provide timely, friendly validation, while PostgreSQL constraints remain the final authority for invariants that must hold under concurrent requests. In particular, the exclusion constraint rejects overlapping confirmed reservations even if simultaneous requests both pass the application's overlap pre-check.
+Server Actions keep mutations callable directly from forms while running authorization, validation, and database writes on the server. `src/lib/booking-rules.ts` keeps reservation-time policy in a pure function, making it reusable and unit-testable without a database or dependence on the server's local time zone.
 
-Run `npx tsx scripts/concurrency-test.ts` to demonstrate the database overlap protection with simultaneous reservation attempts.
+## Key engineering decisions
 
-## Business Context and Rules
+- The reservation action performs an overlap pre-check for a friendly response, while PostgreSQL's exclusion constraint is the concurrency-safe final authority. Constraint failures are translated into the same friendly overlap message.
+- Timestamps use PostgreSQL `timestamptz`; shared formatting and `datetime-local` conversion use the `Asia/Colombo` time zone, while submitted and stored instants are UTC.
+- Reservations are cancelled by status and timestamp, not deleted. Resources are deactivated rather than hard-deleted.
+- Server Actions authenticate and authorize each mutation themselves; access to a page or hidden UI is not the mutation's security check.
+- The JWT carries a user ID, and `getCurrentUser()` re-loads the user from the database on each request so role changes and removed users take effect. React `cache()` deduplicates the lookup within a request.
+- Booking-time validation is a pure function so its business rules can be tested independently from database access.
 
-The seed data models a fictional Colombo software company working from one five-storey building: client and event spaces on Floor 1, engineering teams (focus pods, huddle and war rooms) on Floor 2, product and design on Floor 3, labs and devices (GPU workstation, test devices, recording studio) on Floor 4, and the executive floor on Floor 5, plus two pool vehicles. Rooms are named after computing pioneers.
+## Testing
 
-Booking rules:
-- Bookable Monday to Friday, 08:00-20:00 Sri Lanka time, in 15-minute steps.
-- Minimum 30 minutes; each resource has its own maximum duration (for example 2 hours for huddle rooms, 8 hours for the training hall).
-- Bookings can be made up to 30 days ahead and cannot start in the past.
-- Back-to-back bookings are allowed.
-- A member may hold at most 5 upcoming reservations (admins are exempt) to prevent hoarding of shared labs and rooms.
-- Only the reservation owner or an admin can cancel it; cancelled reservations are kept for history.
-- Utilization = booked hours / available hours (12 hours x 5 working days per week).
+`npm test` runs the Vitest tests in `src/lib/booking-rules.test.ts`. The suite covers valid times, past start, reversed range, slot boundaries, minimum and maximum duration, opening hours, weekend dates, the advance limit, and back-to-back bookings.
 
-## Possible Future Improvements
+The optional database-backed concurrency demonstration is run with:
 
-- Recurring reservations
-- Email or in-app notifications
-- Approval workflow for sensitive resources
-- Full calendar view with drag-and-drop
-- Per-resource opening hours and booking rules
-- Automated end-to-end tests and deployment
+```bash
+npx tsx scripts/concurrency-test.ts
+```
 
-## Demo Video
+It finds `Lovelace Boardroom` and a Member, chooses an unoccupied weekday one-hour slot about 40 days ahead, and submits 10 simultaneous direct Prisma inserts. With the database overlap constraint in place, the expected output is:
 
-[add your video link here]
+```text
+Concurrent reservation attempts: 1 succeeded, 9 rejected (expected 1 and 9).
+```
+
+The script deletes rows with its unique `Concurrency test ...` title prefix and disconnects from Prisma when finished. It tests the database constraint directly; it does not call the booking Server Action or exercise the 30-day application rule.
+
+Manual checks for the app:
+
+| Check | Expected result |
+|---|---|
+| Submit two overlapping confirmed reservations for one resource | The second is rejected with the friendly overlap message |
+| Submit reservations where one ends exactly as the next starts | Both are accepted |
+| Submit a booking whose start is in the past | The booking action rejects it |
+| Exceed a resource's `maxDurationHours` | The booking action rejects it |
+| Book before 08:00, start at/after 20:00, or end after 20:00 | The booking action rejects it |
+| Book on a Saturday or Sunday | The booking action rejects it |
+| Book more than 30 days ahead | The booking action rejects it |
+| A Member attempts to create a sixth confirmed reservation that has not ended | The booking action rejects it |
+| A user changes a cancellation request to another user's reservation ID | Cancellation is denied unless the caller is an Admin |
+| A non-admin opens an admin route or submits an admin resource action | The route redirects and the action independently enforces admin authorization |
+
+## Assumptions and limitations
+
+- The seed data and office layout are fictional demo data; the application supports the listed building resources but does not model floors as a separate entity.
+- Resource, category, and personal reservation list queries use a maximum of 1,000 rows. The resource-day timeline query is limited to 100 reservations for the selected day.
+- The concurrency script requires a reachable configured PostgreSQL database, the seeded `Lovelace Boardroom`, a Member user, and the migrated overlap constraint. Its expected counts depend on the chosen free slot remaining unused during the test.
+
+## Possible future improvements
+
+- Recurring reservations.
+- Reservation notifications.
+- Reservation approval workflows.
+
+## Demo video
+
+[add link here]
