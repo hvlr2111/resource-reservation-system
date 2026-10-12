@@ -8,26 +8,35 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocalDateTime } from "@/components/local-date-time";
 import { BookingForm } from "./booking-form";
+import { AvailabilityTimeline } from "./availability-timeline";
 
 export default function ResourceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
     <Suspense fallback={<main className="mx-auto w-full max-w-5xl flex-1 p-6" />}>
-      <ResourceDetailContent params={params} />
+      <ResourceDetailContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
 
 async function ResourceDetailContent({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const { id: resourceId } = await params;
+  const [{ id: resourceId }, query] = await Promise.all([params, searchParams]);
   const user = await requireUser();
+  const requestedDate =
+    typeof query.date === "string" && isValidDate(query.date)
+      ? query.date
+      : dateInSriLanka(new Date());
 
   const resource = await prisma.resource.findUnique({
     where: { id: resourceId },
@@ -46,15 +55,27 @@ async function ResourceDetailContent({
     notFound();
   }
 
-  const upcomingReservations = await prisma.reservation.findMany({
-    where: {
-      resourceId,
-      status: "CONFIRMED",
-      endTime: { gt: new Date() },
-    },
-    include: { user: { select: { name: true } } },
-    orderBy: { startTime: "asc" },
-  });
+  const [upcomingReservations, dateReservations] = await Promise.all([
+    prisma.reservation.findMany({
+      where: {
+        resourceId,
+        status: "CONFIRMED",
+        endTime: { gt: new Date() },
+      },
+      include: { user: { select: { name: true } } },
+      orderBy: { startTime: "asc" },
+    }),
+    prisma.reservation.findMany({
+      where: {
+        resourceId,
+        status: "CONFIRMED",
+        startTime: { lt: dateRangeEnd(requestedDate) },
+        endTime: { gt: dateRangeStart(requestedDate) },
+      },
+      include: { user: { select: { name: true } } },
+      orderBy: { startTime: "asc" },
+    }),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 p-6">
@@ -75,6 +96,25 @@ async function ResourceDetailContent({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.8fr)]">
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Availability timeline</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AvailabilityTimeline
+                resourceId={resource.id}
+                date={requestedDate}
+                isToday={requestedDate === dateInSriLanka(new Date())}
+                reservations={dateReservations.map((reservation) => ({
+                  id: reservation.id,
+                  title: reservation.title,
+                  startTime: reservation.startTime.toISOString(),
+                  endTime: reservation.endTime.toISOString(),
+                  bookedBy: reservation.user.name,
+                }))}
+              />
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>Resource Details</CardTitle>
@@ -162,4 +202,37 @@ async function ResourceDetailContent({
       </div>
     </main>
   );
+}
+
+function isValidDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
+function dateInSriLanka(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Colombo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function dateRangeStart(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day) - 24 * 60 * 60 * 1000);
+}
+
+function dateRangeEnd(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day) + 2 * 24 * 60 * 60 * 1000);
 }

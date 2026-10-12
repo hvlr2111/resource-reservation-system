@@ -22,9 +22,14 @@ export async function Navbar() {
               My Reservations
             </Link>
             {user.role === "ADMIN" ? (
-              <Link href="/admin/resources" className="hover:underline">
-                Admin
-              </Link>
+              <>
+                <Link href="/admin/resources" className="hover:underline">
+                  Admin
+                </Link>
+                <Link href="/admin/reservations" className="hover:underline">
+                  All Reservations
+                </Link>
+              </>
             ) : null}
             <span className="text-muted-foreground">{user.name}</span>
             <form action={logoutAction}>
