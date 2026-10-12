@@ -12,10 +12,11 @@ import {
 import { ResourceDialog } from "./resource-dialog";
 import { CategoryDialog } from "./category-dialog";
 import { ToggleResourceButton } from "./toggle-resource-button";
+import { PageLoading } from "@/components/page-loading";
 
 export default function AdminResourcesPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<PageLoading />}>
       <AdminResourcesContent />
     </Suspense>
   );

@@ -2,10 +2,11 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { LoginForm } from "./login-form";
+import { PageLoading } from "@/components/page-loading";
 
 export default function LoginPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<PageLoading />}>
       <LoginGate />
     </Suspense>
   );

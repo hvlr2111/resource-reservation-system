@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ResourceFilters } from "./resource-filters";
+import { PageLoading } from "@/components/page-loading";
 
 export default function ResourcesPage({
   searchParams,
@@ -20,7 +21,7 @@ export default function ResourcesPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
-    <Suspense>
+    <Suspense fallback={<PageLoading />}>
       <ResourcesContent searchParams={searchParams} />
     </Suspense>
   );
@@ -59,7 +60,7 @@ async function ResourcesContent({
         </p>
       </div>
 
-      <Suspense fallback={<div>Loading resources...</div>}>
+      <Suspense fallback={<p className="py-8 text-center text-muted-foreground">Loading resources...</p>}>
         <ResourceList
           categories={categories}
           searchParams={resolvedSearchParams}
@@ -143,9 +144,13 @@ async function ResourceList({
                 <TableCell>{resource.location || "-"}</TableCell>
                 <TableCell>{resource.capacity ?? "-"}</TableCell>
                 <TableCell className="text-right">
-                  <Link href={`/resources/${resource.id}`}>
-                    <Button size="sm">Book</Button>
-                  </Link>
+                  <Button
+                    size="sm"
+                    nativeButton={false}
+                    render={<Link href={`/resources/${resource.id}`} />}
+                  >
+                    Book
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

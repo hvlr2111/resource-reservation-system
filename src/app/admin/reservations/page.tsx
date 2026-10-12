@@ -10,6 +10,7 @@ import { LocalDateTime } from "@/components/local-date-time";
 import { ReservationFilters } from "./reservation-filters";
 import { ReservationPagination } from "./reservation-pagination";
 import { CancelReservationButton } from "@/app/reservations/cancel-reservation-button";
+import { PageLoading } from "@/components/page-loading";
 
 const PAGE_SIZE = 10;
 const SRI_LANKA_OFFSET_MINUTES = 5 * 60 + 30;
@@ -22,7 +23,7 @@ export default function AdminReservationsPage({
   searchParams: Promise<QueryValues>;
 }) {
   return (
-    <Suspense fallback={<main className="mx-auto w-full max-w-6xl flex-1 p-6" />}>
+    <Suspense fallback={<PageLoading />}>
       <AdminReservations searchParams={searchParams} />
     </Suspense>
   );

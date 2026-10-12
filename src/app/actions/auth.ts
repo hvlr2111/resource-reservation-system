@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createSession, destroySession } from "@/lib/auth";
+import { createSession, destroySession, requireUser } from "@/lib/auth";
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, { error: "Name must be at least 2 characters." }),
@@ -99,6 +99,7 @@ export async function loginAction(
 }
 
 export async function logoutAction() {
+  await requireUser();
   await destroySession();
   redirect("/login");
 }

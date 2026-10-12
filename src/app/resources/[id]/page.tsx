@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LocalDateTime } from "@/components/local-date-time";
 import { BookingForm } from "./booking-form";
 import { AvailabilityTimeline } from "./availability-timeline";
+import { PageLoading } from "@/components/page-loading";
 
 export default function ResourceDetailPage({
   params,
@@ -18,7 +19,7 @@ export default function ResourceDetailPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
-    <Suspense fallback={<main className="mx-auto w-full max-w-5xl flex-1 p-6" />}>
+    <Suspense fallback={<PageLoading />}>
       <ResourceDetailContent params={params} searchParams={searchParams} />
     </Suspense>
   );

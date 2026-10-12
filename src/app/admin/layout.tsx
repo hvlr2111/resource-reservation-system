@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { PageLoading } from "@/components/page-loading";
 
 export default function AdminLayout({
   children,
@@ -8,7 +9,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <Suspense fallback={<div className="flex-1" />}>
+    <Suspense fallback={<PageLoading />}>
       <AdminAccess>{children}</AdminAccess>
     </Suspense>
   );

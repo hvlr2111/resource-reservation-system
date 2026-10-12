@@ -48,12 +48,12 @@ export function ResourceFilters({ categories, searchParams }: ResourceFiltersPro
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex flex-1 gap-2">
-        <form onSubmit={handleSearchSubmit} className="flex flex-1 gap-2">
+      <div className="flex flex-1 flex-col gap-2 sm:flex-row">
+        <form onSubmit={handleSearchSubmit} className="flex min-w-0 flex-1 gap-2">
           <Input
             aria-label="Search resources by name"
             placeholder="Search resources..."
-            className="max-w-sm"
+            className="min-w-0 max-w-sm flex-1"
             value={searchValue}
             onChange={handleSearchChange}
           />
@@ -67,7 +67,7 @@ export function ResourceFilters({ categories, searchParams }: ResourceFiltersPro
             updateFilter("category", value === "all" ? "" : (value ?? ""))
           }
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="All categories">
               {searchParams.category === "all" || !searchParams.category
                 ? "All categories"

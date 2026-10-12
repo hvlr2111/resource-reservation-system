@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { LocalDateTime } from "@/components/local-date-time";
 import { CancelReservationButton } from "./cancel-reservation-button";
+import { PageLoading } from "@/components/page-loading";
 
 export default function ReservationsPage() {
   return (
-    <Suspense fallback={<main className="mx-auto w-full max-w-5xl flex-1 p-6" />}>
+    <Suspense fallback={<PageLoading />}>
       <MyReservations />
     </Suspense>
   );

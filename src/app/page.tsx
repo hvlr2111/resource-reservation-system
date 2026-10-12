@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { PageLoading } from "@/components/page-loading";
 
 export default function HomePage() {
   return (
-    <Suspense>
+    <Suspense fallback={<PageLoading />}>
       <HomeRedirect />
     </Suspense>
   );

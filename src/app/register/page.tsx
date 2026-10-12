@@ -2,10 +2,11 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { RegisterForm } from "./register-form";
+import { PageLoading } from "@/components/page-loading";
 
 export default function RegisterPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<PageLoading />}>
       <RegisterGate />
     </Suspense>
   );
