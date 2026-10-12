@@ -10,8 +10,23 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  CLOSE_HOUR,
+  MAX_ADVANCE_DAYS,
+  MAX_ACTIVE_BOOKINGS_PER_MEMBER,
+  MIN_DURATION_MINUTES,
+  OPEN_HOUR,
+  SLOT_MINUTES,
+  SL_UTC_OFFSET_MINUTES,
+} from "@/lib/booking-rules";
 
-export function BookingForm({ resourceId }: { resourceId: string }) {
+export function BookingForm({
+  resourceId,
+  maxDurationHours,
+}: {
+  resourceId: string;
+  maxDurationHours: number;
+}) {
   const router = useRouter();
   const action = createReservation.bind(null, resourceId);
   const [state, formAction, pending] = useActionState<
@@ -30,6 +45,20 @@ export function BookingForm({ resourceId }: { resourceId: string }) {
     }
   }, [state, router]);
 
+  function colomboLocalTimeToUtc(value: string) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
+    if (!match) throw new Error("Invalid local time.");
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const hour = Number(match[4]);
+    const minute = Number(match[5]);
+    return new Date(
+      Date.UTC(year, month - 1, day, hour, minute) -
+        SL_UTC_OFFSET_MINUTES * 60_000,
+    ).toISOString();
+  }
+
   function prepareUtcTimes(event: React.FormEvent<HTMLFormElement>) {
     const form = event.currentTarget;
     const startValue = new FormData(form).get("startLocal");
@@ -44,8 +73,8 @@ export function BookingForm({ resourceId }: { resourceId: string }) {
         'input[name="endTime"]',
       );
       if (!startTime || !endTime) return;
-      startTime.value = new Date(startValue).toISOString();
-      endTime.value = new Date(endValue).toISOString();
+      startTime.value = colomboLocalTimeToUtc(startValue);
+      endTime.value = colomboLocalTimeToUtc(endValue);
     } catch {
       event.preventDefault();
       toast.error("Enter valid start and end times.");
@@ -54,6 +83,14 @@ export function BookingForm({ resourceId }: { resourceId: string }) {
 
   return (
     <form action={formAction} onSubmit={prepareUtcTimes} className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Reservations are available Monday–Friday, {String(OPEN_HOUR).padStart(2, "0")}:00–
+        {String(CLOSE_HOUR).padStart(2, "0")}:00 Colombo time, in {SLOT_MINUTES}-minute
+        steps. Book at least {MIN_DURATION_MINUTES} minutes and up to{" "}
+        {maxDurationHours} {maxDurationHours === 1 ? "hour" : "hours"} per
+        reservation, up to {MAX_ADVANCE_DAYS} days ahead. Members can have at
+        most {MAX_ACTIVE_BOOKINGS_PER_MEMBER} active bookings.
+      </p>
       <input type="hidden" name="startTime" />
       <input type="hidden" name="endTime" />
 
@@ -73,11 +110,12 @@ export function BookingForm({ resourceId }: { resourceId: string }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="reservation-start">Start time (your local time)</Label>
+          <Label htmlFor="reservation-start">Start time (Colombo time)</Label>
           <Input
             id="reservation-start"
             name="startLocal"
             type="datetime-local"
+            step={SLOT_MINUTES * 60}
             required
             aria-invalid={Boolean(state?.errors?.startTime)}
           />
@@ -88,11 +126,12 @@ export function BookingForm({ resourceId }: { resourceId: string }) {
           )}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="reservation-end">End time (your local time)</Label>
+          <Label htmlFor="reservation-end">End time (Colombo time)</Label>
           <Input
             id="reservation-end"
             name="endLocal"
             type="datetime-local"
+            step={SLOT_MINUTES * 60}
             required
             aria-invalid={Boolean(state?.errors?.endTime)}
           />

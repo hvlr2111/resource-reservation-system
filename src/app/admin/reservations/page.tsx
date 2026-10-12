@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { ReservationStatus, type Prisma } from "@prisma/client";
-import { startOfWeek } from "date-fns";
 import { requireAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Badge } from "@/components/ui/badge";
@@ -114,7 +113,7 @@ async function AdminReservations({
     take: PAGE_SIZE,
   });
 
-  // Utilization is booked time clipped to daily 08:00-20:00 hours, divided by 12 * 7 available hours.
+  // Utilization is weekday booked time clipped to 08:00-20:00, divided by 12 * 5 available hours.
   const usage = activeResources.map((resource) => {
     const matching = weeklyReservations.filter(
       (reservation) => reservation.resourceId === resource.id,
@@ -132,7 +131,7 @@ async function AdminReservations({
     return {
       ...resource,
       bookings: matching.length,
-      utilization: Math.min(100, (bookedHours / (12 * 7)) * 100),
+      utilization: Math.min(100, (bookedHours / (12 * 5)) * 100),
     };
   });
 
@@ -302,8 +301,16 @@ async function currentSriLankaWeek() {
   }).formatToParts(new Date());
   const value = (type: Intl.DateTimeFormatPartTypes) =>
     Number(parts.find((part) => part.type === type)?.value);
-  const localDate = new Date(Date.UTC(value("year"), value("month") - 1, value("day")));
-  const monday = startOfWeek(localDate, { weekStartsOn: 1 });
+  const localDate = new Date(
+    Date.UTC(value("year"), value("month") - 1, value("day")),
+  );
+  const monday = new Date(
+    Date.UTC(
+      localDate.getUTCFullYear(),
+      localDate.getUTCMonth(),
+      localDate.getUTCDate() - ((localDate.getUTCDay() + 6) % 7),
+    ),
+  );
   const startDate = `${monday.getUTCFullYear()}-${String(monday.getUTCMonth() + 1).padStart(2, "0")}-${String(monday.getUTCDate()).padStart(2, "0")}`;
   const start = sriLankaMidnight(startDate);
   return { start, end: new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000) };
@@ -315,7 +322,7 @@ function sriLankaBusinessHoursOverlap(
   weekStart: Date,
 ) {
   let milliseconds = 0;
-  for (let day = 0; day < 7; day++) {
+  for (let day = 0; day < 5; day++) {
     const businessStart = new Date(
       weekStart.getTime() +
         day * 24 * 60 * 60 * 1000 +

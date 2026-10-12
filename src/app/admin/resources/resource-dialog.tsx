@@ -38,6 +38,7 @@ interface ResourceDialogProps {
     description: string | null;
     location: string | null;
     capacity: number | null;
+    maxDurationHours: number;
   };
 }
 
@@ -183,6 +184,27 @@ export function ResourceDialog({ categories, resource }: ResourceDialogProps) {
             {state?.errors?.capacity && (
               <p className="text-sm text-destructive">
                 {state.errors.capacity[0]}
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor={`${idPrefix}-max-duration`}>
+              Maximum reservation duration (hours)
+            </Label>
+            <Input
+              id={`${idPrefix}-max-duration`}
+              name="maxDurationHours"
+              type="number"
+              min="1"
+              max="12"
+              step="1"
+              required
+              defaultValue={resource?.maxDurationHours ?? 4}
+              aria-invalid={Boolean(state?.errors?.maxDurationHours)}
+            />
+            {state?.errors?.maxDurationHours && (
+              <p className="text-sm text-destructive">
+                {state.errors.maxDurationHours[0]}
               </p>
             )}
           </div>

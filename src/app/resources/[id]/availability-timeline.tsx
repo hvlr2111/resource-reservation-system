@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  CLOSE_HOUR,
+  OPEN_HOUR,
+  SL_UTC_OFFSET_MINUTES,
+  WORKING_DAYS,
+} from "@/lib/booking-rules";
 
 type TimelineReservation = {
   id: string;
@@ -14,19 +20,21 @@ type TimelineReservation = {
   bookedBy: string;
 };
 
-const DAY_START_HOUR = 7;
-const DAY_END_HOUR = 21;
-const VISIBLE_MINUTES = (DAY_END_HOUR - DAY_START_HOUR) * 60;
+const VISIBLE_MINUTES = (CLOSE_HOUR - OPEN_HOUR) * 60;
 
 function localDateTime(date: string, hour: number) {
   const [year, month, day] = date.split("-").map(Number);
-  return new Date(year, month - 1, day, hour);
+  return new Date(
+    Date.UTC(year, month - 1, day, hour) -
+      SL_UTC_OFFSET_MINUTES * 60_000,
+  );
 }
 
 function formatTime(date: Date) {
-  return date.toLocaleTimeString(undefined, {
+  return date.toLocaleTimeString("en-LK", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "Asia/Colombo",
   });
 }
 
@@ -43,11 +51,14 @@ export function AvailabilityTimeline({
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const dayStart = localDateTime(date, DAY_START_HOUR);
-  const dayEnd = localDateTime(date, DAY_END_HOUR);
+  const dayStart = localDateTime(date, OPEN_HOUR);
+  const dayEnd = localDateTime(date, CLOSE_HOUR);
   const now = new Date();
+  const [year, month, day] = date.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const isWorkingDay = WORKING_DAYS.some((workingDay) => workingDay === weekday);
   const currentReservation =
-    isToday && now >= dayStart && now < dayEnd
+    isToday && isWorkingDay && now >= dayStart && now < dayEnd
       ? reservations.find(
           (reservation) =>
             new Date(reservation.startTime) <= now &&
@@ -75,11 +86,15 @@ export function AvailabilityTimeline({
   const selected = visibleReservations.find(
     (reservation) => reservation.id === selectedId,
   );
-  const summary = currentReservation
-    ? `In use until ${formatTime(new Date(currentReservation.endTime))}`
-    : isToday
-      ? "Available now"
-      : null;
+  const summary = !isToday
+    ? null
+    : !isWorkingDay
+      ? "Closed today"
+      : currentReservation
+        ? `In use until ${formatTime(new Date(currentReservation.endTime))}`
+        : now < dayStart || now >= dayEnd
+          ? "Outside booking hours"
+          : "Available now";
 
   return (
     <section aria-label="Resource availability" className="space-y-4">
@@ -123,17 +138,26 @@ export function AvailabilityTimeline({
 
       <div className="overflow-x-auto pb-2">
         <div className="min-w-[640px]">
-          <div className="relative h-14 rounded-md border bg-muted/30">
-            {Array.from({ length: DAY_END_HOUR - DAY_START_HOUR + 1 }, (_, index) => (
+          <div
+            className={`relative h-14 rounded-md border ${
+              isWorkingDay ? "bg-muted/30" : "bg-muted"
+            }`}
+          >
+            {!isWorkingDay && (
+              <span className="absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">
+                Closed
+              </span>
+            )}
+            {Array.from({ length: CLOSE_HOUR - OPEN_HOUR + 1 }, (_, index) => (
               <div
                 key={index}
-                className="absolute inset-y-0 border-l"
+                className="absolute inset-y-0 z-0 border-l"
                 style={{
-                  left: `${(index / (DAY_END_HOUR - DAY_START_HOUR)) * 100}%`,
+                  left: `${(index / (CLOSE_HOUR - OPEN_HOUR)) * 100}%`,
                 }}
               >
                 <span className="absolute -bottom-6 -translate-x-1/2 whitespace-nowrap text-xs text-muted-foreground">
-                  {formatTime(localDateTime(date, DAY_START_HOUR + index))}
+                  {formatTime(localDateTime(date, OPEN_HOUR + index))}
                 </span>
               </div>
             ))}
@@ -175,7 +199,8 @@ export function AvailabilityTimeline({
       </div>
       {visibleReservations.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          No reservations during 7:00 AM–9:00 PM. The day is available.
+          No reservations during {String(OPEN_HOUR).padStart(2, "0")}:00–
+          {String(CLOSE_HOUR).padStart(2, "0")}:00. The day is available.
         </p>
       )}
     </section>

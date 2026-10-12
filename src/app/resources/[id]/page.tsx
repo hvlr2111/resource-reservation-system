@@ -143,6 +143,15 @@ async function ResourceDetailContent({
                       : "Not specified"}
                   </p>
                 </div>
+                <div>
+                  <h3 className="text-sm font-semibold">
+                    Maximum reservation duration
+                  </h3>
+                  <p className="mt-1 text-muted-foreground">
+                    {resource.maxDurationHours}{" "}
+                    {resource.maxDurationHours === 1 ? "hour" : "hours"}
+                  </p>
+                </div>
               </div>
 
               {!resource.isActive && user.role === "ADMIN" && (
@@ -192,7 +201,10 @@ async function ResourceDetailContent({
           </CardHeader>
           <CardContent>
             {resource.isActive ? (
-              <BookingForm resourceId={resource.id} />
+              <BookingForm
+                resourceId={resource.id}
+                maxDurationHours={resource.maxDurationHours}
+              />
             ) : (
               <p className="text-sm text-muted-foreground">
                 This resource is inactive and cannot be booked.

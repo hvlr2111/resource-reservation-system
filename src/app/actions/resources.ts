@@ -33,6 +33,20 @@ const resourceSchema = z.object({
       )
       .nullable(),
   ),
+  maxDurationHours: z.preprocess(
+    (value) => (value === "" || value === null ? undefined : value),
+    z
+      .string()
+      .regex(/^\d+$/, { error: "Maximum duration must be a whole number." })
+      .transform(Number)
+      .pipe(
+        z
+          .number()
+          .int()
+          .min(1, { error: "Maximum duration must be at least 1 hour." })
+          .max(12, { error: "Maximum duration cannot exceed 12 hours." }),
+      ),
+  ),
 });
 
 const categorySchema = z.object({
@@ -48,6 +62,7 @@ export type ResourceFormState = {
     description?: string[];
     location?: string[];
     capacity?: string[];
+    maxDurationHours?: string[];
   };
   message?: string;
   success?: boolean;
@@ -78,13 +93,21 @@ export async function createResource(
     description: formData.get("description"),
     location: formData.get("location"),
     capacity: formData.get("capacity"),
+    maxDurationHours: formData.get("maxDurationHours"),
   });
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const { name, categoryId, description, location, capacity } = parsed.data;
+  const {
+    name,
+    categoryId,
+    description,
+    location,
+    capacity,
+    maxDurationHours,
+  } = parsed.data;
 
   try {
     await prisma.resource.create({
@@ -94,6 +117,7 @@ export async function createResource(
         description,
         location,
         capacity,
+        maxDurationHours,
         isActive: true,
       },
     });
@@ -131,13 +155,21 @@ export async function updateResource(
     description: formData.get("description"),
     location: formData.get("location"),
     capacity: formData.get("capacity"),
+    maxDurationHours: formData.get("maxDurationHours"),
   });
 
   if (!parsed.success) {
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const { name, categoryId, description, location, capacity } = parsed.data;
+  const {
+    name,
+    categoryId,
+    description,
+    location,
+    capacity,
+    maxDurationHours,
+  } = parsed.data;
 
   try {
     await prisma.resource.update({
@@ -148,6 +180,7 @@ export async function updateResource(
         description,
         location,
         capacity,
+        maxDurationHours,
       },
     });
   } catch (error) {

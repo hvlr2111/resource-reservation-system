@@ -4,6 +4,10 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import {
+  MAX_ACTIVE_BOOKINGS_PER_MEMBER,
+  validateReservationTimes,
+} from "@/lib/booking-rules";
 
 const reservationSchema = z.object({
   title: z
@@ -80,31 +84,38 @@ export async function createReservation(
   const startTime = new Date(parsed.data.startTime);
   const endTime = new Date(parsed.data.endTime);
   const now = new Date();
-  const duration = endTime.getTime() - startTime.getTime();
-
-  if (endTime <= startTime) {
-    return { errors: { endTime: ["End time must be after start time."] } };
-  }
-  if (startTime < now) {
-    return { errors: { startTime: ["Start time cannot be in the past."] } };
-  }
-  if (duration < 30 * 60 * 1000) {
-    return {
-      errors: { endTime: ["Reservations must be at least 30 minutes long."] },
-    };
-  }
-  if (duration > 8 * 60 * 60 * 1000) {
-    return {
-      errors: { endTime: ["Reservations cannot be longer than 8 hours."] },
-    };
-  }
 
   const resource = await prisma.resource.findUnique({
     where: { id: resourceIdValue },
-    select: { isActive: true },
+    select: { isActive: true, maxDurationHours: true },
   });
   if (!resource || !resource.isActive) {
     return { message: "This resource is unavailable for booking." };
+  }
+
+  const timeError = validateReservationTimes({
+    start: startTime,
+    end: endTime,
+    now,
+    maxDurationHours: resource.maxDurationHours,
+  });
+  if (timeError) {
+    return { message: timeError };
+  }
+
+  if (user.role === "MEMBER") {
+    const activeBookings = await prisma.reservation.count({
+      where: {
+        userId: user.id,
+        status: "CONFIRMED",
+        endTime: { gt: now },
+      },
+    });
+    if (activeBookings >= MAX_ACTIVE_BOOKINGS_PER_MEMBER) {
+      return {
+        message: `Members may have at most ${MAX_ACTIVE_BOOKINGS_PER_MEMBER} active reservations.`,
+      };
+    }
   }
 
   const overlappingReservation = await prisma.reservation.findFirst({

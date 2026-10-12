@@ -34,16 +34,17 @@ model ResourceCategory {
 }
 
 model Resource {
-  id           String           @id @default(uuid()) @db.Uuid
-  categoryId   String           @db.Uuid
-  category     ResourceCategory @relation(fields: [categoryId], references: [id])
-  name         String
-  description  String?
-  location     String?
-  capacity     Int?
-  isActive     Boolean          @default(true)
-  createdAt    DateTime         @default(now()) @db.Timestamptz(3)
-  reservations Reservation[]
+  id               String           @id @default(uuid()) @db.Uuid
+  categoryId       String           @db.Uuid
+  category         ResourceCategory @relation(fields: [categoryId], references: [id])
+  name             String
+  description      String?
+  location         String?
+  capacity         Int?
+  isActive         Boolean          @default(true)
+  maxDurationHours Int              @default(4)
+  createdAt        DateTime         @default(now()) @db.Timestamptz(3)
+  reservations     Reservation[]
 }
 
 model Reservation {
