@@ -160,15 +160,18 @@ Four tables:
 - **Fresh user lookup on each request.** The JWT stores only the user id, and the user is re-loaded from the database each time, so role changes or removed users take effect immediately.
 - **Simple custom authentication** instead of a heavy auth library, to keep the code small and easy to understand.
 
-## Assumptions and Business Rules
+## Business Context and Rules
 
-- Reservations must be between 30 minutes and 8 hours long.
-- Reservations cannot start in the past.
-- Back-to-back reservations are allowed.
-- Only the reservation owner or an admin can cancel it, and only if it hasn't ended or already been cancelled.
-- Inactive resources cannot be booked and are hidden from members.
-- The availability timeline shows 07:00-21:00 local time.
-- Utilization is calculated as booked hours divided by available hours, assuming 08:00-20:00, 7 days a week.
+The seed data models a fictional Colombo software company working from one five-storey building: client and event spaces on Floor 1, engineering teams (focus pods, huddle and war rooms) on Floor 2, product and design on Floor 3, labs and devices (GPU workstation, test devices, recording studio) on Floor 4, and the executive floor on Floor 5, plus two pool vehicles. Rooms are named after computing pioneers.
+
+Booking rules:
+- Bookable Monday to Friday, 08:00-20:00 Sri Lanka time, in 15-minute steps.
+- Minimum 30 minutes; each resource has its own maximum duration (for example 2 hours for huddle rooms, 8 hours for the training hall).
+- Bookings can be made up to 30 days ahead and cannot start in the past.
+- Back-to-back bookings are allowed.
+- A member may hold at most 5 upcoming reservations (admins are exempt) to prevent hoarding of shared labs and rooms.
+- Only the reservation owner or an admin can cancel it; cancelled reservations are kept for history.
+- Utilization = booked hours / available hours (12 hours x 5 working days per week).
 
 ## Possible Future Improvements
 
