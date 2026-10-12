@@ -4,10 +4,13 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth";
+import type { ActionState } from "@/lib/action-state";
+import { uuidSchema } from "@/lib/validation";
+import { isPrismaClientError } from "@/lib/prisma-errors";
 
 const resourceSchema = z.object({
   name: z.string().trim().min(1, { error: "Name is required." }),
-  categoryId: z.string().uuid({ error: "Invalid category." }),
+  categoryId: uuidSchema,
   description: z.preprocess(
     (value) => (value === "" || value === null ? null : value),
     z.string().trim().nullable(),
@@ -53,39 +56,26 @@ const categorySchema = z.object({
   name: z.string().trim().min(1, { error: "Name is required." }),
 });
 
-const resourceIdSchema = z.string().uuid({ error: "Invalid resource." });
+const resourceIdSchema = uuidSchema;
 
-export type ResourceFormState = {
-  errors?: {
-    name?: string[];
-    categoryId?: string[];
-    description?: string[];
-    location?: string[];
-    capacity?: string[];
-    maxDurationHours?: string[];
-  };
-  message?: string;
-  success?: boolean;
-} | null;
-
-export type CategoryFormState = {
-  errors?: {
-    name?: string[];
-  };
-  message?: string;
-  success?: boolean;
-} | null;
-
-export type ToggleResourceState = {
-  success: boolean;
-  message?: string;
-} | null;
+export type ResourceFormState = ActionState<
+  "name" | "categoryId" | "description" | "location" | "capacity" | "maxDurationHours"
+>;
+export type CategoryFormState = ActionState<"name">;
+export type ToggleResourceState = ActionState;
 
 export async function createResource(
   _prevState: ResourceFormState,
   formData: FormData,
 ): Promise<ResourceFormState> {
-  await requireAdmin();
+  try {
+    await requireAdmin();
+  } catch (error) {
+    if (isPrismaClientError(error)) {
+      return { message: "Could not verify admin access. Please try again." };
+    }
+    throw error;
+  }
 
   const parsed = resourceSchema.safeParse({
     name: formData.get("name"),
@@ -120,6 +110,7 @@ export async function createResource(
         maxDurationHours,
         isActive: true,
       },
+      select: { id: true },
     });
   } catch (error) {
     if (
@@ -128,7 +119,7 @@ export async function createResource(
     ) {
       return { errors: { categoryId: ["Category not found"] } };
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (isPrismaClientError(error)) {
       return { message: "Could not create resource. Please try again." };
     }
     throw error;
@@ -141,7 +132,14 @@ export async function updateResource(
   _prevState: ResourceFormState,
   formData: FormData,
 ): Promise<ResourceFormState> {
-  await requireAdmin();
+  try {
+    await requireAdmin();
+  } catch (error) {
+    if (isPrismaClientError(error)) {
+      return { message: "Could not verify admin access. Please try again." };
+    }
+    throw error;
+  }
 
   const parsedId = resourceIdSchema.safeParse(formData.get("id"));
   if (!parsedId.success) {
@@ -182,6 +180,7 @@ export async function updateResource(
         capacity,
         maxDurationHours,
       },
+      select: { id: true },
     });
   } catch (error) {
     if (
@@ -196,7 +195,7 @@ export async function updateResource(
     ) {
       return { errors: { categoryId: ["Category not found"] } };
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (isPrismaClientError(error)) {
       return { message: "Could not update resource. Please try again." };
     }
     throw error;
@@ -209,7 +208,17 @@ export async function toggleResourceActive(
   _prevState: ToggleResourceState,
   formData: FormData,
 ): Promise<ToggleResourceState> {
-  await requireAdmin();
+  try {
+    await requireAdmin();
+  } catch (error) {
+    if (isPrismaClientError(error)) {
+      return {
+        success: false,
+        message: "Could not verify admin access. Please try again.",
+      };
+    }
+    throw error;
+  }
 
   const parsedId = resourceIdSchema.safeParse(formData.get("id"));
   if (!parsedId.success) {
@@ -245,7 +254,7 @@ export async function toggleResourceActive(
         : "Resource activated",
     };
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (isPrismaClientError(error)) {
       return {
         success: false,
         message: "Could not update the resource status. Please try again.",
@@ -259,7 +268,14 @@ export async function createCategory(
   _prevState: CategoryFormState,
   formData: FormData,
 ): Promise<CategoryFormState> {
-  await requireAdmin();
+  try {
+    await requireAdmin();
+  } catch (error) {
+    if (isPrismaClientError(error)) {
+      return { message: "Could not verify admin access. Please try again." };
+    }
+    throw error;
+  }
 
   const parsed = categorySchema.safeParse({
     name: formData.get("name"),
@@ -274,6 +290,7 @@ export async function createCategory(
   try {
     await prisma.resourceCategory.create({
       data: { name },
+      select: { id: true },
     });
   } catch (error) {
     if (
@@ -282,7 +299,7 @@ export async function createCategory(
     ) {
       return { errors: { name: ["Category name already exists"] } };
     }
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (isPrismaClientError(error)) {
       return { message: "Could not create category. Please try again." };
     }
     throw error;

@@ -20,8 +20,16 @@ async function MyReservations() {
   const user = await requireUser();
   const reservations = await prisma.reservation.findMany({
     where: { userId: user.id },
-    include: { resource: { select: { name: true } } },
+    select: {
+      id: true,
+      title: true,
+      startTime: true,
+      endTime: true,
+      status: true,
+      resource: { select: { name: true } },
+    },
     orderBy: { startTime: "desc" },
+    take: 1000,
   });
   const now = new Date();
   const upcoming = reservations.filter(
@@ -67,7 +75,14 @@ async function MyReservations() {
 }
 
 type ReservationItem = Prisma.ReservationGetPayload<{
-  include: { resource: { select: { name: true } } };
+  select: {
+    id: true;
+    title: true;
+    startTime: true;
+    endTime: true;
+    status: true;
+    resource: { select: { name: true } };
+  };
 }>;
 
 function ReservationSection({

@@ -23,8 +23,8 @@ export type CurrentUser = {
 
 function getEncodedSecret() {
   const secret = process.env.AUTH_SECRET;
-  if (!secret) {
-    throw new Error("AUTH_SECRET is not set");
+  if (!secret || secret.length < 32) {
+    throw new Error("AUTH_SECRET must be set to a value at least 32 characters long.");
   }
   return new TextEncoder().encode(secret);
 }
@@ -40,12 +40,13 @@ export async function signSession(userId: string) {
 
 /** Verify the JWT and return the payload, or null if missing/invalid. */
 export async function readSession(): Promise<SessionPayload | null> {
+  const secret = getEncodedSecret();
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
 
   try {
-    const { payload } = await jwtVerify(token, getEncodedSecret(), {
+    const { payload } = await jwtVerify(token, secret, {
       algorithms: ["HS256"],
     });
     const userId = payload.userId;
@@ -83,7 +84,8 @@ export async function destroySession() {
 }
 
 /**
- * Load the current user from the DB using the id stored in the JWT.
+ * Reload the user from the DB on each request so role changes and deleted
+ * accounts take effect immediately; React cache only deduplicates within a request.
  * Returns null when there is no valid session. Wrapped in React cache()
  * so layout + page can call this in the same request without a second query.
  */

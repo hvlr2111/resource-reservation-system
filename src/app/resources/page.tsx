@@ -36,7 +36,11 @@ async function ResourcesContent({
 
   const [rawSearchParams, categories] = await Promise.all([
     searchParams,
-    prisma.resourceCategory.findMany({ orderBy: { name: "asc" } }),
+    prisma.resourceCategory.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+      take: 1000,
+    }),
   ]);
   const search = typeof rawSearchParams.search === "string"
     ? rawSearchParams.search
@@ -99,10 +103,15 @@ async function ResourceList({
 
   const resources = await prisma.resource.findMany({
     where,
-    include: {
-      category: true,
+    select: {
+      id: true,
+      name: true,
+      location: true,
+      capacity: true,
+      category: { select: { name: true } },
     },
     orderBy: { name: "asc" },
+    take: 1000,
   });
 
   if (resources.length === 0) {

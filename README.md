@@ -34,7 +34,7 @@ Reservations were handled through informal communication and manual records, whi
 | UI | Tailwind CSS, shadcn/ui |
 | Validation | Zod |
 | Authentication | bcryptjs + JWT (`jose`) in an httpOnly cookie |
-| Dates | date-fns |
+| Dates | `Intl.DateTimeFormat` with the Asia/Colombo time zone |
 | Local database | Docker Compose |
 | Version control | Git and GitHub |
 
@@ -69,7 +69,7 @@ Reservations were handled through informal communication and manual records, whi
    Then open `.env` and set `AUTH_SECRET` to a random string. You can generate one with:
 
 ```bash
-   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
 3. Start PostgreSQL:
@@ -156,11 +156,19 @@ ER diagram:https://dbdiagram.io/d/resource-reservation-system-6accbe6310dbb6efb5
 
 - **Overlap protection in the database.** A `btree_gist` exclusion constraint on `tstzrange("startTime", "endTime", '[)')` rejects overlapping CONFIRMED reservations for the same resource. An application-only check can fail when two requests arrive at the same moment; the constraint cannot. The application also performs a friendly pre-check and translates the database error (code `23P01`) into a clear message. The half-open range `[)` means back-to-back bookings (one ending when the next begins) are allowed.
 - **A check constraint** (`end_after_start`) guarantees valid time ranges at the database level.
-- **UTC storage.** All timestamps are stored as `timestamptz` and displayed in the user's local time.
+- **UTC storage.** All timestamps are stored as `timestamptz` and displayed in Sri Lanka time.
 - **Soft cancellation and deactivation.** Reservations are marked CANCELLED and resources are deactivated rather than deleted, which preserves history for reporting and avoids broken references.
 - **Server-side authorization.** Every server action verifies the current user and role itself; route protection alone is never relied on.
 - **Fresh user lookup on each request.** The JWT stores only the user id, and the user is re-loaded from the database each time, so role changes or removed users take effect immediately.
 - **Simple custom authentication** instead of a heavy auth library, to keep the code small and easy to understand.
+
+## Architecture
+
+A page reads the request and loads only the data it needs from Prisma. A form submits to a Server Action, which checks the session and authorization, validates input with Zod, applies the pure booking rules in `src/lib/booking-rules.ts`, and then reads or writes PostgreSQL. Server Actions keep mutations close to the UI while still running trusted authorization and validation on the server; the browser never supplies the acting user id.
+
+The rules in `src/lib/booking-rules.ts` are a pure function so both behavior and edge cases can be checked without database or server-time-zone dependencies. Application checks provide timely, friendly validation, while PostgreSQL constraints remain the final authority for invariants that must hold under concurrent requests. In particular, the exclusion constraint rejects overlapping confirmed reservations even if simultaneous requests both pass the application's overlap pre-check.
+
+Run `npx tsx scripts/concurrency-test.ts` to demonstrate the database overlap protection with simultaneous reservation attempts.
 
 ## Business Context and Rules
 

@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
 export function ReservationFilters({
@@ -7,9 +10,29 @@ export function ReservationFilters({
   resources: { id: string; name: string }[];
   filters: { resource: string; status: string; from: string; to: string };
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  function applyFilters(formData: FormData) {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const key of ["resource", "status", "from", "to"]) {
+      const value = formData.get(key);
+      if (typeof value === "string" && value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    }
+    params.delete("page");
+    const query = params.toString();
+    router.push(`/admin/reservations${query ? `?${query}` : ""}`, {
+      scroll: false,
+    });
+  }
+
   return (
     <form
-      method="get"
+      action={applyFilters}
       className="grid gap-3 rounded-md border p-4 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
     >
       <label className="space-y-1 text-sm">

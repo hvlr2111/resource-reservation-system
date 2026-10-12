@@ -86,7 +86,7 @@ export function ResourceDialog({ categories, resource }: ResourceDialogProps) {
       <DialogTrigger render={<Button />}>
         {isEditing ? "Edit" : "Add resource"}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? "Edit resource" : "Add new resource"}

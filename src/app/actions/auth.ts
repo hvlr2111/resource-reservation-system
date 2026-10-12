@@ -6,32 +6,22 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, requireUser } from "@/lib/auth";
+import type { ActionState } from "@/lib/action-state";
+import { emailSchema, passwordSchema } from "@/lib/validation";
+import { isPrismaClientError } from "@/lib/prisma-errors";
 
 const registerSchema = z.object({
   name: z.string().trim().min(2, { error: "Name must be at least 2 characters." }),
-  email: z
-    .email({ error: "Enter a valid email." })
-    .trim()
-    .toLowerCase(),
-  password: z.string().min(8, { error: "Password must be at least 8 characters." }),
+  email: emailSchema,
+  password: passwordSchema,
 });
 
 const loginSchema = z.object({
-  email: z
-    .email({ error: "Enter a valid email." })
-    .trim()
-    .toLowerCase(),
-  password: z.string().min(8, { error: "Password must be at least 8 characters." }),
+  email: emailSchema,
+  password: passwordSchema,
 });
 
-export type AuthFormState = {
-  errors?: {
-    name?: string[];
-    email?: string[];
-    password?: string[];
-  };
-  message?: string;
-} | null;
+export type AuthFormState = ActionState<"name" | "email" | "password">;
 
 export async function registerAction(
   _prevState: AuthFormState,
@@ -54,6 +44,7 @@ export async function registerAction(
     // New accounts are always MEMBER — admins are created via seed/DB, not signup.
     const user = await prisma.user.create({
       data: { name, email, passwordHash, role: "MEMBER" },
+      select: { id: true },
     });
     await createSession(user.id);
   } catch (error) {
@@ -63,7 +54,10 @@ export async function registerAction(
     ) {
       return { errors: { email: ["Email already registered"] } };
     }
-    return { message: "Could not create your account. Please try again." };
+    if (isPrismaClientError(error)) {
+      return { message: "Could not create your account. Please try again." };
+    }
+    throw error;
   }
 
   redirect("/resources");
@@ -84,7 +78,18 @@ export async function loginAction(
 
   const { email, password } = parsed.data;
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user: { id: string; passwordHash: string } | null;
+  try {
+    user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, passwordHash: true },
+    });
+  } catch (error) {
+    if (isPrismaClientError(error)) {
+      return { message: "Could not sign in. Please try again." };
+    }
+    throw error;
+  }
   const passwordOk = user
     ? await bcrypt.compare(password, user.passwordHash)
     : false;
@@ -99,7 +104,14 @@ export async function loginAction(
 }
 
 export async function logoutAction() {
-  await requireUser();
+  try {
+    await requireUser();
+  } catch (error) {
+    if (isPrismaClientError(error)) {
+      throw new Error("Could not verify your account. Please try again.");
+    }
+    throw error;
+  }
   await destroySession();
   redirect("/login");
 }

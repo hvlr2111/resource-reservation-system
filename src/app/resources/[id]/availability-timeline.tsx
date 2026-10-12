@@ -1,6 +1,5 @@
 "use client";
 
-import { addDays, format, parseISO } from "date-fns";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -8,9 +7,13 @@ import { Input } from "@/components/ui/input";
 import {
   CLOSE_HOUR,
   OPEN_HOUR,
-  SL_UTC_OFFSET_MINUTES,
   WORKING_DAYS,
 } from "@/lib/booking-rules";
+import {
+  addDaysToDateString,
+  colomboDateTimeLocalToUtc,
+  formatColomboTime,
+} from "@/lib/dates";
 
 type TimelineReservation = {
   id: string;
@@ -23,19 +26,8 @@ type TimelineReservation = {
 const VISIBLE_MINUTES = (CLOSE_HOUR - OPEN_HOUR) * 60;
 
 function localDateTime(date: string, hour: number) {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(
-    Date.UTC(year, month - 1, day, hour) -
-      SL_UTC_OFFSET_MINUTES * 60_000,
-  );
-}
-
-function formatTime(date: Date) {
-  return date.toLocaleTimeString("en-LK", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Colombo",
-  });
+  const localValue = `${date}T${String(hour).padStart(2, "0")}:00`;
+  return new Date(colomboDateTimeLocalToUtc(localValue));
 }
 
 export function AvailabilityTimeline({
@@ -43,17 +35,19 @@ export function AvailabilityTimeline({
   date,
   reservations,
   isToday,
+  currentTime,
 }: {
   resourceId: string;
   date: string;
   reservations: TimelineReservation[];
   isToday: boolean;
+  currentTime: string;
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const dayStart = localDateTime(date, OPEN_HOUR);
   const dayEnd = localDateTime(date, CLOSE_HOUR);
-  const now = new Date();
+  const now = new Date(currentTime);
   const [year, month, day] = date.split("-").map(Number);
   const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
   const isWorkingDay = WORKING_DAYS.some((workingDay) => workingDay === weekday);
@@ -91,7 +85,7 @@ export function AvailabilityTimeline({
     : !isWorkingDay
       ? "Closed today"
       : currentReservation
-        ? `In use until ${formatTime(new Date(currentReservation.endTime))}`
+      ? `In use until ${formatColomboTime(new Date(currentReservation.endTime))}`
         : now < dayStart || now >= dayEnd
           ? "Outside booking hours"
           : "Available now";
@@ -105,7 +99,7 @@ export function AvailabilityTimeline({
             variant="outline"
             size="sm"
             aria-label="Previous day"
-            onClick={() => goToDate(format(addDays(parseISO(date), -1), "yyyy-MM-dd"))}
+            onClick={() => goToDate(addDaysToDateString(date, -1))}
           >
             Previous day
           </Button>
@@ -114,7 +108,7 @@ export function AvailabilityTimeline({
             variant="outline"
             size="sm"
             aria-label="Next day"
-            onClick={() => goToDate(format(addDays(parseISO(date), 1), "yyyy-MM-dd"))}
+            onClick={() => goToDate(addDaysToDateString(date, 1))}
           >
             Next day
           </Button>
@@ -157,7 +151,7 @@ export function AvailabilityTimeline({
                 }}
               >
                 <span className="absolute -bottom-6 -translate-x-1/2 whitespace-nowrap text-xs text-muted-foreground">
-                  {formatTime(localDateTime(date, OPEN_HOUR + index))}
+                  {formatColomboTime(localDateTime(date, OPEN_HOUR + index))}
                 </span>
               </div>
             ))}
@@ -165,8 +159,8 @@ export function AvailabilityTimeline({
               <button
                 key={reservation.id}
                 type="button"
-                title={`${reservation.title} · ${formatTime(new Date(reservation.startTime))}–${formatTime(new Date(reservation.endTime))} · Booked by ${reservation.bookedBy}`}
-                aria-label={`${reservation.title}, ${formatTime(new Date(reservation.startTime))} to ${formatTime(new Date(reservation.endTime))}, booked by ${reservation.bookedBy}`}
+                title={`${reservation.title} · ${formatColomboTime(new Date(reservation.startTime))}–${formatColomboTime(new Date(reservation.endTime))} · Booked by ${reservation.bookedBy}`}
+                aria-label={`${reservation.title}, ${formatColomboTime(new Date(reservation.startTime))} to ${formatColomboTime(new Date(reservation.endTime))}, booked by ${reservation.bookedBy}`}
                 aria-pressed={selectedId === reservation.id}
                 onClick={() =>
                   setSelectedId((current) =>
@@ -187,9 +181,9 @@ export function AvailabilityTimeline({
             <div className="mt-8 rounded-md border p-3 text-sm" aria-live="polite">
               <p className="font-medium">{selected.title}</p>
               <p className="text-muted-foreground">
-                {formatTime(new Date(selected.startTime))}
+                {formatColomboTime(new Date(selected.startTime))}
                 {" – "}
-                {formatTime(new Date(selected.endTime))}
+                {formatColomboTime(new Date(selected.endTime))}
                 {" · Booked by "}
                 {selected.bookedBy}
               </p>

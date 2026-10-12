@@ -160,7 +160,7 @@ async function main() {
     }
   }
 
-  console.log("Seed complete");
+  process.stdout.write("Seed complete\n");
 }
 
 main().finally(() => prisma.$disconnect());

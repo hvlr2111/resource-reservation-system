@@ -13,27 +13,52 @@ import { ResourceDialog } from "./resource-dialog";
 import { CategoryDialog } from "./category-dialog";
 import { ToggleResourceButton } from "./toggle-resource-button";
 import { PageLoading } from "@/components/page-loading";
+import { AdminResourceCategoryFilter } from "./resource-category-filter";
 
-export default function AdminResourcesPage() {
+export default function AdminResourcesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   return (
     <Suspense fallback={<PageLoading />}>
-      <AdminResourcesContent />
+      <AdminResourcesContent searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function AdminResourcesContent() {
-  const [resources, categories] = await Promise.all([
-    prisma.resource.findMany({
-      include: {
-        category: true,
-      },
-      orderBy: { name: "asc" },
-    }),
-    prisma.resourceCategory.findMany({
-      orderBy: { name: "asc" },
-    }),
-  ]);
+async function AdminResourcesContent({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const query = await searchParams;
+  const categories = await prisma.resourceCategory.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+    take: 1000,
+  });
+  const selectedCategory =
+    typeof query.category === "string" &&
+    categories.some((category) => category.id === query.category)
+      ? query.category
+      : "";
+  const filteredResources = await prisma.resource.findMany({
+    where: selectedCategory ? { categoryId: selectedCategory } : undefined,
+    select: {
+      id: true,
+      name: true,
+      categoryId: true,
+      description: true,
+      location: true,
+      capacity: true,
+      maxDurationHours: true,
+      isActive: true,
+      category: { select: { name: true } },
+    },
+    orderBy: { name: "asc" },
+    take: 1000,
+  });
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 p-6">
@@ -50,11 +75,19 @@ async function AdminResourcesContent() {
         </div>
       </div>
 
-      {resources.length === 0 ? (
+      <AdminResourceCategoryFilter
+        key={selectedCategory}
+        categories={categories}
+        selectedCategory={selectedCategory}
+      />
+
+      {filteredResources.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="text-lg text-muted-foreground">No resources found</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Create your first resource to get started.
+            {selectedCategory
+              ? "There are no resources in this category."
+              : "Create your first resource to get started."}
           </p>
         </div>
       ) : (
@@ -71,7 +104,7 @@ async function AdminResourcesContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {resources.map((resource) => (
+              {filteredResources.map((resource) => (
                 <TableRow key={resource.id}>
                   <TableCell className="font-medium">{resource.name}</TableCell>
                   <TableCell>

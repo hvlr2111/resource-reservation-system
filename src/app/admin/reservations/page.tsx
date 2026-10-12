@@ -10,9 +10,16 @@ import { ReservationFilters } from "./reservation-filters";
 import { ReservationPagination } from "./reservation-pagination";
 import { CancelReservationButton } from "@/app/reservations/cancel-reservation-button";
 import { PageLoading } from "@/components/page-loading";
+import {
+  addDaysToDateString,
+  colomboMidnight,
+  getColomboDate,
+  isValidDateString,
+} from "@/lib/dates";
+import { CLOSE_HOUR, OPEN_HOUR } from "@/lib/booking-rules";
 
 const PAGE_SIZE = 10;
-const SRI_LANKA_OFFSET_MINUTES = 5 * 60 + 30;
+const RESOURCE_LIST_LIMIT = 1000;
 
 type QueryValues = Record<string, string | string[] | undefined>;
 
@@ -40,18 +47,20 @@ async function AdminReservations({
       where: { isActive: true },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
+      take: RESOURCE_LIST_LIMIT,
     }),
     prisma.resource.findMany({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
+      take: RESOURCE_LIST_LIMIT,
     }),
     currentSriLankaWeek(),
   ]);
 
-  const fromDate = typeof query.from === "string" && validDate(query.from)
+  const fromDate = typeof query.from === "string" && isValidDateString(query.from)
     ? query.from
     : "";
-  const toDate = typeof query.to === "string" && validDate(query.to)
+  const toDate = typeof query.to === "string" && isValidDateString(query.to)
     ? query.to
     : "";
   const resourceId =
@@ -70,8 +79,8 @@ async function AdminReservations({
   const requestedPage =
     Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const dateWhere = {
-    ...(fromDate ? { gte: sriLankaMidnight(fromDate) } : {}),
-    ...(toDate ? { lt: sriLankaMidnight(addDate(toDate, 1)) } : {}),
+    ...(fromDate ? { gte: colomboMidnight(fromDate) } : {}),
+    ...(toDate ? { lt: colomboMidnight(addDaysToDateString(toDate, 1)) } : {}),
   };
   const where: Prisma.ReservationWhereInput = {
     ...(resourceId ? { resourceId } : {}),
@@ -104,7 +113,12 @@ async function AdminReservations({
   const page = Math.min(requestedPage, pageCount);
   const reservations = await prisma.reservation.findMany({
     where,
-    include: {
+    select: {
+      id: true,
+      title: true,
+      startTime: true,
+      endTime: true,
+      status: true,
       resource: { select: { name: true } },
       user: { select: { name: true } },
     },
@@ -182,6 +196,7 @@ async function AdminReservations({
       <section className="space-y-4">
         <h2 className="text-xl font-semibold">Reservations</h2>
         <ReservationFilters
+          key={`${resourceId}:${filterStatus}:${fromDate}:${toDate}`}
           resources={allResources}
           filters={{
             resource: resourceId,
@@ -195,7 +210,7 @@ async function AdminReservations({
             No reservations match these filters.
           </p>
         ) : (
-          <div className="rounded-md border">
+          <div className="overflow-x-auto rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -268,51 +283,12 @@ async function AdminReservations({
   );
 }
 
-function sriLankaMidnight(date: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(
-    Date.UTC(year, month - 1, day) - SRI_LANKA_OFFSET_MINUTES * 60_000,
-  );
-}
-
-function addDate(date: string, days: number) {
-  const [year, month, day] = date.split("-").map(Number);
-  const next = new Date(Date.UTC(year, month - 1, day + days));
-  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, "0")}-${String(next.getUTCDate()).padStart(2, "0")}`;
-}
-
-function validDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
-}
-
 async function currentSriLankaWeek() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Colombo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((part) => part.type === type)?.value);
-  const localDate = new Date(
-    Date.UTC(value("year"), value("month") - 1, value("day")),
-  );
-  const monday = new Date(
-    Date.UTC(
-      localDate.getUTCFullYear(),
-      localDate.getUTCMonth(),
-      localDate.getUTCDate() - ((localDate.getUTCDay() + 6) % 7),
-    ),
-  );
-  const startDate = `${monday.getUTCFullYear()}-${String(monday.getUTCMonth() + 1).padStart(2, "0")}-${String(monday.getUTCDate()).padStart(2, "0")}`;
-  const start = sriLankaMidnight(startDate);
+  const today = getColomboDate();
+  const [year, month, day] = today.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const startDate = addDaysToDateString(today, -((weekday + 6) % 7));
+  const start = colomboMidnight(startDate);
   return { start, end: new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000) };
 }
 
@@ -326,10 +302,10 @@ function sriLankaBusinessHoursOverlap(
     const businessStart = new Date(
       weekStart.getTime() +
         day * 24 * 60 * 60 * 1000 +
-        8 * 60 * 60 * 1000,
+        OPEN_HOUR * 60 * 60 * 1000,
     );
     const businessEnd = new Date(
-      businessStart.getTime() + 12 * 60 * 60 * 1000,
+      businessStart.getTime() + (CLOSE_HOUR - OPEN_HOUR) * 60 * 60 * 1000,
     );
     const overlapStart = Math.max(
       reservationStart.getTime(),

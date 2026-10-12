@@ -10,6 +10,14 @@ import { LocalDateTime } from "@/components/local-date-time";
 import { BookingForm } from "./booking-form";
 import { AvailabilityTimeline } from "./availability-timeline";
 import { PageLoading } from "@/components/page-loading";
+import {
+  addDaysToDateString,
+  colomboMidnight,
+  findNextFreeColomboStart,
+  getColomboDate,
+  isValidDateString,
+} from "@/lib/dates";
+import { uuidSchema } from "@/lib/validation";
 
 export default function ResourceDetailPage({
   params,
@@ -34,15 +42,26 @@ async function ResourceDetailContent({
 }) {
   const [{ id: resourceId }, query] = await Promise.all([params, searchParams]);
   const user = await requireUser();
+  const parsedResourceId = uuidSchema.safeParse(resourceId);
+  if (!parsedResourceId.success) notFound();
+  const now = new Date();
+  const today = getColomboDate(now);
   const requestedDate =
-    typeof query.date === "string" && isValidDate(query.date)
+    typeof query.date === "string" && isValidDateString(query.date)
       ? query.date
-      : dateInSriLanka(new Date());
+      : today;
 
   const resource = await prisma.resource.findUnique({
-    where: { id: resourceId },
-    include: {
-      category: true,
+    where: { id: parsedResourceId.data },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      location: true,
+      capacity: true,
+      maxDurationHours: true,
+      isActive: true,
+      category: { select: { name: true } },
     },
   });
 
@@ -59,24 +78,39 @@ async function ResourceDetailContent({
   const [upcomingReservations, dateReservations] = await Promise.all([
     prisma.reservation.findMany({
       where: {
-        resourceId,
+        resourceId: resource.id,
         status: "CONFIRMED",
-        endTime: { gt: new Date() },
+        endTime: { gt: now },
       },
-      include: { user: { select: { name: true } } },
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        endTime: true,
+        user: { select: { name: true } },
+      },
       orderBy: { startTime: "asc" },
+      take: 1000,
     }),
     prisma.reservation.findMany({
       where: {
-        resourceId,
+        resourceId: resource.id,
         status: "CONFIRMED",
-        startTime: { lt: dateRangeEnd(requestedDate) },
-        endTime: { gt: dateRangeStart(requestedDate) },
+        startTime: { lt: colomboMidnight(addDaysToDateString(requestedDate, 1)) },
+        endTime: { gt: colomboMidnight(requestedDate) },
       },
-      include: { user: { select: { name: true } } },
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        endTime: true,
+        user: { select: { name: true } },
+      },
       orderBy: { startTime: "asc" },
+      take: 100,
     }),
   ]);
+  const initialStart = findNextFreeColomboStart(now, upcomingReservations);
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 p-6">
@@ -105,7 +139,8 @@ async function ResourceDetailContent({
               <AvailabilityTimeline
                 resourceId={resource.id}
                 date={requestedDate}
-                isToday={requestedDate === dateInSriLanka(new Date())}
+                isToday={requestedDate === today}
+                currentTime={now.toISOString()}
                 reservations={dateReservations.map((reservation) => ({
                   id: reservation.id,
                   title: reservation.title,
@@ -204,6 +239,7 @@ async function ResourceDetailContent({
               <BookingForm
                 resourceId={resource.id}
                 maxDurationHours={resource.maxDurationHours}
+                initialStart={initialStart}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
@@ -215,37 +251,4 @@ async function ResourceDetailContent({
       </div>
     </main>
   );
-}
-
-function isValidDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  return (
-    parsed.getUTCFullYear() === year &&
-    parsed.getUTCMonth() === month - 1 &&
-    parsed.getUTCDate() === day
-  );
-}
-
-function dateInSriLanka(date: Date) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Colombo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const part = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
-
-function dateRangeStart(date: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day) - 24 * 60 * 60 * 1000);
-}
-
-function dateRangeEnd(date: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day) + 2 * 24 * 60 * 60 * 1000);
 }

@@ -28,6 +28,8 @@ export function validateReservationTimes({
     return "Start time cannot be in the past.";
   }
 
+  // Add Colombo's fixed offset before reading UTC fields so server time zones
+  // never affect booking dates, weekdays, or opening-hour checks.
   const startLocal = new Date(
     start.getTime() + SL_UTC_OFFSET_MINUTES * MINUTE_MS,
   );

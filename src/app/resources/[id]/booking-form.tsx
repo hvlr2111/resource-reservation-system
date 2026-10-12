@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -17,17 +17,31 @@ import {
   MIN_DURATION_MINUTES,
   OPEN_HOUR,
   SLOT_MINUTES,
-  SL_UTC_OFFSET_MINUTES,
 } from "@/lib/booking-rules";
+import {
+  colomboDateTimeLocalToUtc,
+  formatColomboDateTimeLocal,
+} from "@/lib/dates";
 
 export function BookingForm({
   resourceId,
   maxDurationHours,
+  initialStart,
 }: {
   resourceId: string;
   maxDurationHours: number;
+  initialStart: string | null;
 }) {
   const router = useRouter();
+  const [title, setTitle] = useState("");
+  const [startLocal, setStartLocal] = useState(initialStart ?? "");
+  const [endLocal, setEndLocal] = useState(() => {
+    if (!initialStart) return "";
+    const startUtc = new Date(colomboDateTimeLocalToUtc(initialStart));
+    return formatColomboDateTimeLocal(
+      new Date(startUtc.getTime() + MIN_DURATION_MINUTES * 60_000),
+    );
+  });
   const action = createReservation.bind(null, resourceId);
   const [state, formAction, pending] = useActionState<
     ReservationFormState,
@@ -45,36 +59,13 @@ export function BookingForm({
     }
   }, [state, router]);
 
-  function colomboLocalTimeToUtc(value: string) {
-    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(value);
-    if (!match) throw new Error("Invalid local time.");
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const hour = Number(match[4]);
-    const minute = Number(match[5]);
-    return new Date(
-      Date.UTC(year, month - 1, day, hour, minute) -
-        SL_UTC_OFFSET_MINUTES * 60_000,
-    ).toISOString();
-  }
-
   function prepareUtcTimes(event: React.FormEvent<HTMLFormElement>) {
-    const form = event.currentTarget;
-    const startValue = new FormData(form).get("startLocal");
-    const endValue = new FormData(form).get("endLocal");
-    if (typeof startValue !== "string" || typeof endValue !== "string") return;
-
     try {
-      const startTime = form.querySelector<HTMLInputElement>(
-        'input[name="startTime"]',
-      );
-      const endTime = form.querySelector<HTMLInputElement>(
-        'input[name="endTime"]',
-      );
+      const startTime = event.currentTarget.querySelector<HTMLInputElement>('input[name="startTime"]');
+      const endTime = event.currentTarget.querySelector<HTMLInputElement>('input[name="endTime"]');
       if (!startTime || !endTime) return;
-      startTime.value = colomboLocalTimeToUtc(startValue);
-      endTime.value = colomboLocalTimeToUtc(endValue);
+      startTime.value = colomboDateTimeLocalToUtc(startLocal);
+      endTime.value = colomboDateTimeLocalToUtc(endLocal);
     } catch {
       event.preventDefault();
       toast.error("Enter valid start and end times.");
@@ -101,6 +92,8 @@ export function BookingForm({
           name="title"
           required
           maxLength={100}
+          value={title}
+          onChange={(event) => setTitle(event.currentTarget.value)}
           aria-invalid={Boolean(state?.errors?.title)}
         />
         {state?.errors?.title && (
@@ -117,6 +110,8 @@ export function BookingForm({
             type="datetime-local"
             step={SLOT_MINUTES * 60}
             required
+            value={startLocal}
+            onChange={(event) => setStartLocal(event.currentTarget.value)}
             aria-invalid={Boolean(state?.errors?.startTime)}
           />
           {state?.errors?.startTime && (
@@ -133,6 +128,8 @@ export function BookingForm({
             type="datetime-local"
             step={SLOT_MINUTES * 60}
             required
+            value={endLocal}
+            onChange={(event) => setEndLocal(event.currentTarget.value)}
             aria-invalid={Boolean(state?.errors?.endTime)}
           />
           {state?.errors?.endTime && (
