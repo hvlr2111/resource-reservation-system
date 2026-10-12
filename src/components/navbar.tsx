@@ -22,7 +22,7 @@ export async function Navbar() {
               My Reservations
             </Link>
             {user.role === "ADMIN" ? (
-              <Link href="/admin" className="hover:underline">
+              <Link href="/admin/resources" className="hover:underline">
                 Admin
               </Link>
             ) : null}
