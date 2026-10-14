@@ -283,4 +283,4 @@ Manual checks for the app:
 
 ## Demo video
 
-[add link here]
+[https://drive.google.com/file/d/18Zpyj6Hp11TTjrXdggNCcSd5UtVZV5bu/view?usp=drive_link]
